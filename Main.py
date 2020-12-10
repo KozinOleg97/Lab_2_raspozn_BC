@@ -24,8 +24,8 @@ pix = image.load()  # Выгружаем значения пикселей.
 CHANCE = 1 / 100  ########Вероятность ошибки#######
 GILBERT_STATE_B_ERR_CHANCE = 1 / 4
 GILBERT_STATE_CHANGE = 1 / 100
-block_x = 4  #########Размер блока#######
-block_y = 4  ########Размер блока########
+block_x = 1  #########Размер блока#######
+block_y = 1  ########Размер блока########
 block_numb = int(round(width * height / (block_x * block_y)))
 
 
@@ -281,20 +281,23 @@ for blc in range(block_numb):
 
     data.append(calc_block_avg(i, j, block_x, block_y))
 ###########Искажение##################
-data2 = some_err(copy.deepcopy(data))
+data3 = None
+data2 = None
+# data2 = some_err(copy.deepcopy(data))
 # data3 = gilbert_err(copy.deepcopy(data))
-data3 = data2
+
+# data3 = data2
 
 data4 = copy.deepcopy(data)
 
 #########Распаковка#######################
 img_no_err = unpack(data4, image)
-img_err = unpack(data2, image)
-img_err_gilbert = unpack(data3, image)
+# img_err = unpack(data2, image)
+# img_err_gilbert = unpack(data3, image)
 
 img_no_err.save("img_no_err.bmp", "BMP")
-img_err_gilbert.save("img_gilbert.bmp", "BMP")
-img_err.save("img_err.bmp", "BMP")
+# img_err_gilbert.save("img_gilbert.bmp", "BMP")
+# img_err.save("img_err.bmp", "BMP")
 
 ######Сравнение####################
 
