@@ -22,7 +22,7 @@ def calcContrast(names):
     for name in names:
         img = cv2.imread(name)
 
-        # compute min and max of Y
+        # compute min and max of
         min = int(np.min(img))
         max = int(np.max(img))
         # compute contrast
@@ -38,6 +38,99 @@ def calc_RMS_Contrast(names):
 
         contrast = img.std()
         res.append(contrast)
+    return res
+
+
+def calc_CustomMetric_a(names):
+    res = list()
+    for name in names:
+        img = cv2.imread(name)
+        block_y = len(img)
+        block_x = len(img[0])
+        p = block_x * block_y
+        avg = 0
+        avg_pow = 0
+        dsp = 0
+        sum = 0
+        sum2 = np.int64(0)
+        for x in range(block_x):
+            for y in range(block_y):
+                sum = sum + img[y][x][0]
+                sum2 = sum2 + (img[y][x][0] ** 2)
+                # print(x, y)
+
+        avg = sum / (block_x * block_y)
+        avg_pow = (int(sum2) / (block_x * block_y))
+        dsp = avg_pow - avg ** 2
+        d = avg
+
+        q = 0
+
+        for x in range(block_x):
+            for y in range(block_y):
+                if img[y][x][0] > avg:
+                    q = q + 1
+
+        try:
+            # среднее - (СКО * (долю пикселей больше среднего)**0.5 )
+            a = int(round(avg - (dsp ** 0.5) * ((q / (p - q)) ** 0.5)))
+            b = int(round(avg + (dsp ** 0.5) * (((p - q) / q) ** 0.5)))
+            if a < 1:
+                a = 0
+            if b < 1:
+                b = 0
+
+            res.append(a)
+        except ZeroDivisionError:
+            a = b = int(round(avg))
+
+    return res
+
+
+def calc_CustomMetric_b(names):
+    res = list()
+    for name in names:
+        img = cv2.imread(name)
+        block_y = len(img)
+        block_x = len(img[0])
+        p = block_x * block_y
+        avg = 0
+        avg_pow = 0
+        dsp = 0
+        sum = 0
+        sum2 = np.int64(0)
+        for x in range(block_x):
+            for y in range(block_y):
+                sum = sum + img[y][x][0]
+                sum2 = sum2 + (img[y][x][0] ** 2)
+                # print(x, y)
+
+        avg = sum / (block_x * block_y)
+        avg_pow = (int(sum2) / (block_x * block_y))
+        dsp = avg_pow - avg ** 2
+        d = avg
+
+        q = 0
+
+        for x in range(block_x):
+            for y in range(block_y):
+                if img[y][x][0] > avg:
+                    q = q + 1
+
+        try:
+            # среднее - (СКО * (отношение пикселей выше среднего к пикселям ниже среднего)**0.5 )
+            a = int(round(avg - (dsp ** 0.5) * ((q / (p - q)) ** 0.5)))
+            # среднее + (СКО * (отношение пикселей ниже среднего к пикселям выше среднего)**0.5 )
+            b = int(round(avg + (dsp ** 0.5) * (((p - q) / q) ** 0.5)))
+            if a < 1:
+                a = 0
+            if b < 1:
+                b = 0
+
+            res.append(b)
+        except ZeroDivisionError:
+            a = b = int(round(avg))
+
     return res
 
 
@@ -99,7 +192,9 @@ def WriteToFile(folder, *args):
         wr.writerows(output)
 
 
-WriteToFile("\Berlin_4", calcContrast, calc_RMS_Contrast, calc_CustomMetric)
-WriteToFile("\AmdTest_4", calcContrast, calc_RMS_Contrast, calc_CustomMetric)
+WriteToFile("\Berlin_4", calcContrast, calc_RMS_Contrast, calc_CustomMetric, calc_CustomMetric_a, calc_CustomMetric_b)
+WriteToFile("\AmdTest_4", calcContrast, calc_RMS_Contrast, calc_CustomMetric, calc_CustomMetric_a, calc_CustomMetric_b)
+WriteToFile("\Gladiolus_4", calcContrast, calc_RMS_Contrast, calc_CustomMetric, calc_CustomMetric_a,
+            calc_CustomMetric_b)
 
 pass

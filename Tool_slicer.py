@@ -1,3 +1,3 @@
 import image_slicer
 
-image_slicer.slice('Berlin.bmp', 6)
+image_slicer.slice('Lg_Gladiolus.bmp', 6)
