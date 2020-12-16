@@ -1,45 +1,26 @@
-import copy
+import math
 import math
 import os
 import random
 
 import cv2
 import numpy as np
-from PIL import Image, ImageDraw, ImageChops  # Подключим необходимые библиотеки.
-
-GILBERT_STATE = 1  # 1 - good; 2 - bad
-
-orig_img_name = "AMDTest.bmp"
-
-folder = "E:\Programming\Python\Lab_2_raspozn\\"
-
-image = Image.open(orig_img_name)  # Открываем изображение.
-draw = ImageDraw.Draw(image)  # Создаем инструмент для рисования.
-width = image.size[0]  # Определяем ширину.
-height = image.size[1]  # Определяем высоту.
-print(width, height)
-pix = image.load()  # Выгружаем значения пикселей.
-
-#####Параметры#######################
-CHANCE = 1 / 100  ########Вероятность ошибки#######
-GILBERT_STATE_B_ERR_CHANCE = 1 / 4
-GILBERT_STATE_CHANGE = 1 / 100
-block_x = 1  #########Размер блока#######
-block_y = 1  ########Размер блока########
-block_numb = int(round(width * height / (block_x * block_y)))
+from PIL import ImageChops  # Подключим необходимые библиотеки.
 
 
-def calc_block_avg(i, j, block_x, block_y):
+def calc_block_avg(i, j, block_x, block_y, pix):
     p = block_x * block_y
     avg = 0
     avg_pow = 0
     dsp = 0
     sum = 0
     sum2 = 0
+
     for x in range(block_x):
         for y in range(block_y):
-            sum = sum + pix[i + x, j + y][0]
-            sum2 = sum2 + (pix[i + x, j + y][0] ** 2)
+            sum = sum + pix[j + y][i + x][0]
+            sum2 = sum2 + (pix[j + y][i + x][0] ** 2)
+
             # print(x, y)
 
     avg = sum / (block_x * block_y)
@@ -51,7 +32,7 @@ def calc_block_avg(i, j, block_x, block_y):
 
     for x in range(block_x):
         for y in range(block_y):
-            if pix[i + x, j + y][0] > avg:
+            if pix[j + y][i + x][0] > avg:
                 q = q + 1
 
     try:
@@ -68,7 +49,7 @@ def calc_block_avg(i, j, block_x, block_y):
 
     for x in range(block_x):
         for y in range(block_y):
-            if pix[i + x, j + y][0] >= d:
+            if pix[j + y][i + x][0] >= d:
                 code = code + "1"
             else:
                 code = code + "0"
@@ -100,24 +81,26 @@ def gamble(chance):
     return 0
 
 
-def gilbert(GILBERT_STATE):
-    if GILBERT_STATE == 1:
-        res = rnd_choice([GILBERT_STATE_CHANGE, 1 - GILBERT_STATE_CHANGE])
-        if res == 1:
-            g = gamble(CHANCE)
-        if res == 0:  # perehod v B
-            GILBERT_STATE = 0
-            g = gamble(GILBERT_STATE_B_ERR_CHANCE)
+def gilbert(state, err_min, err_max, do_step):
+    if do_step:
+        if state == 1:
+            # from good to bad
+            res = gamble(0.1)
+            if res == 1:  # perehod v B
+                state = 0
 
+        else:
+            # from bad to good
+            res = gamble(0.4)
+            if res == 1:  # perehod v G
+                state = 1
+
+    if state == 1:
+        got_err = gamble(err_min)
     else:
-        res = rnd_choice([GILBERT_STATE_CHANGE, 1 - GILBERT_STATE_CHANGE])
-        if res == 1:
-            g = gamble(GILBERT_STATE_B_ERR_CHANCE)
-        if res == 0:  # perehod v B
-            GILBERT_STATE = 1
-            g = gamble(CHANCE)
+        got_err = gamble(err_max)
 
-    return g
+    return state, got_err
 
 
 def rnd_choice(array):
@@ -133,7 +116,9 @@ def rnd_choice(array):
     return choice_index
 
 
-def some_err(data):
+def simple_err(data, err_chance):
+    block_numb = len(data) - 2
+
     for blc in range(block_numb):
         cur_data = data[blc]
         code = cur_data[2]
@@ -144,13 +129,13 @@ def some_err(data):
         numb_b = len(b)
 
         for i in range(numb_a):
-            if gamble(CHANCE):
+            if gamble(err_chance):
                 a = err(a, i)
         for i in range(numb_b):
-            if gamble(CHANCE):
+            if gamble(err_chance):
                 b = err(b, i)
         for i in range(numb_code):
-            if gamble(CHANCE):
+            if gamble(err_chance):
                 code = err(code, i)
 
         data[blc][0] = a
@@ -159,8 +144,12 @@ def some_err(data):
     return data
 
 
-def gilbert_err(data):
+def gilbert_err(data, err_min, err_max, step_range):
+    block_numb = len(data) - 2
+    gilbert_state = 1
+    cur_step = 0
     for blc in range(block_numb):
+        # print(gilbert_state)
         cur_data = data[blc]
         code = cur_data[2]
         a = cur_data[0]
@@ -170,49 +159,42 @@ def gilbert_err(data):
         numb_b = len(b)
 
         for i in range(numb_a):
-            if gilbert(GILBERT_STATE):
+            # переход 1 раз в step_range бит, ошибка каждый шаг
+            if cur_step < step_range:
+                gilbert_state, got_err = gilbert(gilbert_state, err_min, err_max, do_step=False)
+            else:
+                gilbert_state, got_err = gilbert(gilbert_state, err_min, err_max, do_step=True)
+                cur_step = 0
+
+            if got_err:
                 a = err(a, i)
+            cur_step = cur_step + 1
+
         for i in range(numb_b):
-            if gilbert(GILBERT_STATE):
+            # переход 1 раз в step_range бит, ошибка каждый шаг
+            if cur_step < step_range:
+                gilbert_state, got_err = gilbert(gilbert_state, err_min, err_max, do_step=False)
+            else:
+                gilbert_state, got_err = gilbert(gilbert_state, err_min, err_max, do_step=True)
+                cur_step = 0
+
+            if got_err:
                 b = err(b, i)
+
         for i in range(numb_code):
-            if gilbert(GILBERT_STATE):
+            if cur_step < step_range:
+                gilbert_state, got_err = gilbert(gilbert_state, err_min, err_max, do_step=False)
+            else:
+                gilbert_state, got_err = gilbert(gilbert_state, err_min, err_max, do_step=True)
+                cur_step = 0
+
+            if got_err:
                 code = err(code, i)
 
         data[blc][0] = a
         data[blc][1] = b
         data[blc][2] = code
     return data
-
-
-######Распаковка###############
-def unpack(data, img_orig):
-    img = img_orig.copy()
-    draw = ImageDraw.Draw(img)
-    for blc in range(block_numb):
-        cur_data = data[blc]
-        code = cur_data[2]
-        a = cur_data[0]
-        b = cur_data[1]
-        # print(a)
-        a = int("0b" + a, base=2)
-        b = int("0b" + b, base=2)
-
-        # print(b)
-
-        i = (blc * block_x) % width
-        j = block_y * (blc * block_x // width)
-        cur = 0
-        for x in range(block_x):
-            for y in range(block_y):
-                if code[cur] == "1":
-                    draw.point((i + x, j + y), (b, b, b))
-                else:
-                    draw.point((i + x, j + y), (a, a, a))
-                cur = cur + 1
-
-    return img
-    # image.save(img_name + ".jpg", "JPEG")
 
 
 def mse_diff(im1, im2):
@@ -251,81 +233,131 @@ def psnr_diff(mse):
     return PSNR
 
 
-######оттенки серого########
-"""for i in range(width):
-    for j in range(height):
-        a = pix[i, j][0]
-        b = pix[i, j][1]
-        c = pix[i, j][2]
-        S = (a + b + c) // 3
-        draw.point((i, j), (S, S, S))
+def compress_img(img, block_x, block_y):
+    width = len(img[0])  # Определяем ширину.
+    height = len(img)  # Определяем высоту.
+    block_numb = int(round(width * height / (block_x * block_y)))
 
-image.save("gray.jpg", "JPEG")"""
+    res = []
 
-# image_orig = image.copy()
-# draw_orig = ImageDraw.Draw(image_orig)
+    for blc in range(block_numb):
+        # print(blc)
+        i = (blc * block_x) % width
+        j = int(block_y * (blc * block_x // width))
 
-# draw_orig = copy.deepcopy(draw)
+        # print(i, j)
+        res.append(calc_block_avg(i, j, block_x, block_y, img))
 
-########Упаковка#####
-data = []
-for blc in range(block_numb):
-    i = (blc * block_x) % width
-    j = block_y * (blc * block_x // width)
-    # print(i)
-    # print(j)
-    # print("--")
-    avg = 0
-    avg2 = 0
-    dsp = 0
+    # additional info about size
+    res.append(width)
+    res.append(height)
+    return res
 
-    data.append(calc_block_avg(i, j, block_x, block_y))
-###########Искажение##################
-data3 = None
-data2 = None
-# data2 = some_err(copy.deepcopy(data))
-# data3 = gilbert_err(copy.deepcopy(data))
 
-# data3 = data2
+def decompress_img(compressed_img, block_x, block_y):
+    width = compressed_img[-2]
+    height = compressed_img[-1]
 
-data4 = copy.deepcopy(data)
+    block_numb = int(round(width * height / (block_x * block_y)))
 
-#########Распаковка#######################
-img_no_err = unpack(data4, image)
-# img_err = unpack(data2, image)
-# img_err_gilbert = unpack(data3, image)
+    blank_image = np.zeros((height, width, 3), np.uint8)
+    for blc in range(block_numb):
+        cur_data = compressed_img[blc]
+        code = cur_data[2]
+        a = cur_data[0]
+        b = cur_data[1]
+        # print(a)
+        a = int("0b" + a, base=2)
+        b = int("0b" + b, base=2)
 
-img_no_err.save("img_no_err.bmp", "BMP")
-# img_err_gilbert.save("img_gilbert.bmp", "BMP")
-# img_err.save("img_err.bmp", "BMP")
+        # print(b)
 
-######Сравнение####################
+        i = (blc * block_x) % width
+        j = block_y * (blc * block_x // width)
+        cur = 0
+        for x in range(block_x):
+            for y in range(block_y):
+                if code[cur] == "1":
+                    blank_image[j + y][i + x][0] = b
+                    blank_image[j + y][i + x][1] = b
+                    blank_image[j + y][i + x][2] = b
+                else:
+                    blank_image[j + y][i + x][0] = a
+                    blank_image[j + y][i + x][1] = a
+                    blank_image[j + y][i + x][2] = a
+                cur = cur + 1
 
-img1 = cv2.imread(os.path.abspath(orig_img_name))
-img2 = cv2.imread(os.path.abspath('img_no_err.bmp'))
+    return blank_image
 
-print(mse(img1, img2))
-print(psnr(img1, img2))
-psnr = cv2.PSNR(img1, img2)
-print(psnr)
 
-cv2.MSER
-"""
-print("Обычная ошибка")
-mse = mse_diff(image, img_err)
-print(mse)
+def proc_no_err(name, format, block):
+    orig_img_name = name + format
 
-psnr = psnr_diff(mse)
-print(psnr)
+    block_x = block
+    block_y = block
 
-print("Гилберт")
-mse = mse_diff(image, img_err_gilbert)
-print(mse)
+    image = cv2.imread(PATH + "\\" + orig_img_name)
 
-psnr = psnr_diff(mse)
-print(psnr)"""
+    compressed_img = compress_img(image, block_x, block_y)
 
-# diff = ImageChops.difference(image_orig, image)
-# diff.show()
+    decompressed_img = decompress_img(compressed_img, block_x, block_y)
 
-pass
+    cv2.imwrite(PATH + "\\" + name + "\\" + "no_errors_b" + str(block_x) + ".bmp", decompressed_img)
+    print(" done -> " + PATH + "\\" + name + "\\" + "no_errors_b" + str(block_x) + ".bmp")
+
+
+def proc_simple_err(name, format, block, err_chance):
+    orig_img_name = name + format
+
+    block_x = block
+    block_y = block
+
+    image = cv2.imread(PATH + "\\" + orig_img_name)
+
+    compressed_img = compress_img(image, block_x, block_y)
+
+    compressed_img_with_simple_err = simple_err(compressed_img, err_chance)
+
+    decompressed_img = decompress_img(compressed_img_with_simple_err, block_x, block_y)
+
+    cv2.imwrite(PATH + "\\" + name + "\\" + "simple_errors_b" + str(block_x) + ".bmp", decompressed_img)
+    print(" done -> " + PATH + "\\" + name + "\\" + "simple_errors_b" + str(block_x) + ".bmp")
+
+
+def proc_gilbert_err(name, format, block, err_chance_min, err_chance_max, step_range):
+    orig_img_name = name + format
+
+    block_x = block
+    block_y = block
+
+    image = cv2.imread(PATH + "\\" + orig_img_name)
+
+    compressed_img = compress_img(image, block_x, block_y)
+
+    compressed_img_with_simple_err = gilbert_err(compressed_img, err_chance_min, err_chance_max, step_range)
+
+    decompressed_img = decompress_img(compressed_img_with_simple_err, block_x, block_y)
+
+    cv2.imwrite(PATH + "\\" + name + "\\" + "gilbert_errors_b" + str(block_x) + ".bmp", decompressed_img)
+    print(" done -> " + PATH + "\\" + name + "\\" + "gilbert_errors_b" + str(block_x) + ".bmp")
+
+
+###############
+
+PATH = os.path.abspath(os.getcwd())
+
+proc_no_err("AMDTest", ".bmp", block=4)
+proc_simple_err("AMDTest", ".bmp", block=4, err_chance=1 / 1000)
+proc_gilbert_err("AMDTest", ".bmp", block=4, err_chance_min=1 / 100000, err_chance_max=1 / 100, step_range=1000)
+
+proc_no_err("Gladiolus", ".bmp", block=4)
+proc_simple_err("Gladiolus", ".bmp", block=4, err_chance=1 / 1000)
+proc_gilbert_err("Gladiolus", ".bmp", block=4, err_chance_min=1 / 100000, err_chance_max=1 / 100, step_range=1000)
+
+proc_no_err("Berlin", ".bmp", block=4)
+proc_simple_err("Berlin", ".bmp", block=4, err_chance=1 / 1000)
+proc_gilbert_err("Berlin", ".bmp", block=4, err_chance_min=1 / 100000, err_chance_max=1 / 100, step_range=1000)
+
+proc_no_err("Berlin", ".bmp", block=8)
+proc_simple_err("Berlin", ".bmp", block=8, err_chance=1 / 1000)
+proc_gilbert_err("Berlin", ".bmp", block=8, err_chance_min=1 / 100000, err_chance_max=1 / 100, step_range=1000)
