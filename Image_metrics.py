@@ -7,11 +7,11 @@ import numpy as np
 PATH = os.path.abspath(os.getcwd())
 
 
-def getListOfNames(path):
+def getListOfNames(path, ext=".png"):
     all_imgs = list()
 
     for file in os.listdir(path):
-        if file.endswith(".png"):
+        if file.endswith(ext):
             all_imgs.append(os.path.join(path, file))
             print(os.path.join(path, file))
     return all_imgs
@@ -190,11 +190,3 @@ def WriteToFile(folder, *args):
     with open(PATH + folder + "\out.csv", "w") as f:
         wr = csv.writer(f)
         wr.writerows(output)
-
-
-WriteToFile("\Berlin_4", calcContrast, calc_RMS_Contrast, calc_CustomMetric, calc_CustomMetric_a, calc_CustomMetric_b)
-WriteToFile("\AmdTest_4", calcContrast, calc_RMS_Contrast, calc_CustomMetric, calc_CustomMetric_a, calc_CustomMetric_b)
-WriteToFile("\Gladiolus_4", calcContrast, calc_RMS_Contrast, calc_CustomMetric, calc_CustomMetric_a,
-            calc_CustomMetric_b)
-
-pass

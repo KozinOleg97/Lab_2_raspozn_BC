@@ -1,11 +1,8 @@
-import math
-import math
 import os
 import random
 
 import cv2
 import numpy as np
-from PIL import ImageChops  # Подключим необходимые библиотеки.
 
 
 def calc_block_avg(i, j, block_x, block_y, pix):
@@ -103,19 +100,6 @@ def gilbert(state, err_min, err_max, do_step):
     return state, got_err
 
 
-def rnd_choice(array):
-    # array = self.vectorToArray(vector)
-    summ = sum(array)
-    if summ < 1:
-        array[0] += 1 - summ
-
-    summ = sum(array)
-
-    choice_index = np.random.choice(a=len(array), p=array, replace=False)
-
-    return choice_index
-
-
 def simple_err(data, err_chance):
     block_numb = len(data) - 2
 
@@ -195,42 +179,6 @@ def gilbert_err(data, err_min, err_max, step_range):
         data[blc][1] = b
         data[blc][2] = code
     return data
-
-
-def mse_diff(im1, im2):
-    "Calculate the mean-square difference between two images"
-    diff = ImageChops.difference(im1, im2)
-    h = diff.histogram()
-    sq = (value * ((idx % 256) ** 2) for idx, value in enumerate(h))
-    sum_of_squares = sum(sq)
-    mse = sum_of_squares / float(im1.size[0] * im1.size[1])
-    return mse
-
-
-def mse(img1, img2):
-    img1 = img1.astype(np.float64) / 255.
-    img2 = img2.astype(np.float64) / 255.
-    mse = np.mean((img1 - img2) ** 2)
-    return mse
-
-
-def psnr(img1, img2):
-    img1 = img1.astype(np.float64) / 255.
-    img2 = img2.astype(np.float64) / 255.
-    mse = np.mean((img1 - img2) ** 2)
-    if mse == 0:
-        return 100
-    PIXEL_MAX = 255.0
-    return 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
-
-
-def psnr_diff(mse):
-    # mse = np.mean((original - contrast) ** 2)
-    if mse == 0:
-        return 100
-    PIXEL_MAX = 255.0
-    PSNR = 20 * math.log10(PIXEL_MAX / math.sqrt(mse))
-    return PSNR
 
 
 def compress_img(img, block_x, block_y):
@@ -358,6 +306,6 @@ proc_no_err("Berlin", ".bmp", block=4)
 proc_simple_err("Berlin", ".bmp", block=4, err_chance=1 / 1000)
 proc_gilbert_err("Berlin", ".bmp", block=4, err_chance_min=1 / 100000, err_chance_max=1 / 100, step_range=1000)
 
-proc_no_err("Berlin", ".bmp", block=8)
-proc_simple_err("Berlin", ".bmp", block=8, err_chance=1 / 1000)
-proc_gilbert_err("Berlin", ".bmp", block=8, err_chance_min=1 / 100000, err_chance_max=1 / 100, step_range=1000)
+# proc_no_err("Berlin", ".bmp", block=8)
+# proc_simple_err("Berlin", ".bmp", block=8, err_chance=1 / 1000)
+# proc_gilbert_err("Berlin", ".bmp", block=8, err_chance_min=1 / 100000, err_chance_max=1 / 100, step_range=1000)
